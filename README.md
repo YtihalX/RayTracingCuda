@@ -1,1 +1,3 @@
 # RayTracingCuda
+
+For learning purpose
