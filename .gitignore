@@ -1,3 +1,4 @@
 *.sqlite
 *.nsys-rep
+*.ppm
 main
