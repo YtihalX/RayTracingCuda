@@ -2,6 +2,7 @@
 #define HIITTABLE_CUH
 
 #include "./ray.cuh"
+#include "./interval.cuh"
 
 class hit_record {
 public:
@@ -18,7 +19,7 @@ public:
 
 class hittable {
 public:
-  __device__ virtual bool hit(const ray &r, float ray_tmin, float ray_tmax,
+  __device__ virtual bool hit(const ray &r, interval ray_t,
                               hit_record &rec) const = 0;
   __device__ virtual ~hittable() = default;
 };

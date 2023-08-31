@@ -132,7 +132,7 @@ __global__ void free_world(hittable** d_list, hittable_list** d_world) {
 
 __device__ colorint ray_color(const ray &r, hittable_list** world) {
   hit_record rec;
-  if (world[0]->hit(r, 0., infinity, rec)) {
+  if (world[0]->hit(r, interval(0., infinity), rec)) {
     // printf("normal: %f %f %f\n", rec.normal.x(), rec.normal.y(), rec.normal.z());
     return colorint(0.5 * (rec.normal + vec3(1., 1., 1.)));
   }

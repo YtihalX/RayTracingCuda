@@ -14,7 +14,7 @@ public:
   __device__ sphere(point3 center, float radius)
       : center(center), radius(radius) {}
 
-  __device__ bool hit(const ray &r, float ray_tmin, float ray_tmax,
+  __device__ bool hit(const ray &r, interval ray_t,
                       hit_record &rec) const override {
     vec3 oc = r.origin() - center;
     float a = r.direction().modsq();
@@ -27,9 +27,9 @@ public:
     float sqrtd = sqrtf(discriminant);
 
     float root = (-halfb - sqrtd) / a;
-    if (root <= ray_tmin || ray_tmax <= root) {
+    if (!ray_t.surrounds(root)) {
       root = (-halfb + sqrtd) / a;
-      if (root <= ray_tmin || ray_tmax <= root)
+      if (!ray_t.surrounds(root))
         return false;
     }
 
