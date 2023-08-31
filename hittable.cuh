@@ -4,10 +4,13 @@
 #include "./ray.cuh"
 #include "./interval.cuh"
 
+class material;
+
 class hit_record {
 public:
   point3 p;
   vec3 normal;
+  material* mat;
   float t;
   bool front_face;
 
@@ -21,7 +24,7 @@ class hittable {
 public:
   __device__ virtual bool hit(const ray &r, interval ray_t,
                               hit_record &rec) const = 0;
-  __device__ virtual ~hittable() = default;
+  __device__ virtual ~hittable(){}
 };
 
 #endif

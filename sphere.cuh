@@ -9,10 +9,11 @@ class sphere : public hittable {
 private:
   point3 center;
   float radius;
+  material* mat;
 
 public:
-  __device__ sphere(point3 center, float radius)
-      : center(center), radius(radius) {}
+  __device__ sphere(point3 center, float radius, material* mate)
+      : center(center), radius(radius), mat(mate) {}
 
   __device__ bool hit(const ray &r, interval ray_t,
                       hit_record &rec) const override {
@@ -37,6 +38,7 @@ public:
     rec.p = r.at(root);
     vec3 outward_normal = (rec.p - center) / radius;
     rec.set_face_normal(r, outward_normal);
+    rec.mat = mat;
 
     return true;
   }

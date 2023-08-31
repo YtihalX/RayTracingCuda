@@ -3,6 +3,7 @@
 
 #include "./hittable.cuh"
 #include "./interval.cuh"
+#include <stdio.h>
 
 class hittable_list:public hittable {
   public:

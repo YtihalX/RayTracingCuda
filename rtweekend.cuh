@@ -3,6 +3,7 @@
 
 #include <limits>
 #include <math.h>
+#include <curand_kernel.h>
 
 const float infinity = INFINITY;
 const float pi = 3.14159265358979323846;
