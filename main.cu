@@ -1,5 +1,6 @@
 #include "./rtweekend.cuh"
 #include "./hittable.cuh"
+#include "./hittable_list.cuh"
 #include "./sphere.cuh"
 #include <limits>
 #include <stdio.h>
@@ -18,8 +19,11 @@ struct colorint {
   __host__ __device__ inline int z() const { return v[2]; }
 };
 
-__global__ void render(colorint *pixels, vec3 pixel00_loc, point3 camera_ceenter, vec3 dpdu, vec3 dpdv, int width,
-                       int height);
+__global__ void render(colorint *pixels, vec3 pixel00_loc, point3 camera_center,
+                       vec3 dpdu, vec3 dpdv, int width, int height, hittable_list** d_world);
+
+__global__ void create_world(hittable** d_list, hittable_list** d_world);
+__global__ void free_world(hittable** d_list, hittable_list** d_world);
 
 struct pic {
   char *content;
@@ -68,6 +72,12 @@ int main(int argc, char *argv[]) {
     height = 1440;
   }
   pic picture(width, height);
+
+  hittable** d_list;
+  hittable_list** d_world;
+  cudaMalloc(&d_list, 2 * sizeof(hittable*));
+  cudaMalloc(&d_world, sizeof(hittable*));
+
   float focal_length = 1.;
   float viewport_height = 2;
   float viewport_width = viewport_height * (static_cast<float>(width) / height);
@@ -89,9 +99,14 @@ int main(int argc, char *argv[]) {
   colorint *pixels;
   cudaMallocManaged(&pixels, width * height * sizeof(colorint));
 
-  render<<<dimGrid, dimBlock, 2 * sizeof(hittable)>>>(pixels, pixel00_loc, camera_center, dpdu, dpdv,
-                                width, height);
+  create_world<<<1, 1>>>(d_list, d_world);
   cudaDeviceSynchronize();
+
+  render<<<dimGrid, dimBlock, 2 * sizeof(hittable)>>>(pixels, pixel00_loc, camera_center, dpdu, dpdv,
+                                width, height, d_world);
+  cudaDeviceSynchronize();
+
+  free_world<<<1, 1>>>(d_list, d_world);
 
   for (int y = 0; y < height; y++) {
     for (int x = 0; x < width; x++) {
@@ -103,30 +118,21 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-__device__ void create_world(sphere* world) {
-  world[0] = sphere(point3(0., 0., -1.), 0.5);
-  world[1] = sphere(point3(0., -100.5, -1.), 100.);
+__global__ void create_world(hittable** d_list, hittable_list** d_world) {
+  d_list[0] = new sphere(point3(0, 0, -1), 0.5);
+  d_list[1] = new sphere(point3(0, -100.5, -1), 100);
+  d_world[0] = new hittable_list(d_list, 2);
 }
 
-__device__ bool world_hit(sphere* world, int len, const ray &r, float ray_tmin, float ray_tmax, hit_record &rec) {
-  hit_record temp_rec;
-  bool hit_anything = false;
-  float closest_so_far = ray_tmax;
-
-  for (int i = 0; i < len; i++) {
-    // printf("?");
-    if (hit(&world[i], r, ray_tmin, closest_so_far, temp_rec)) {
-      hit_anything = true;
-      closest_so_far = temp_rec.t;
-      rec = temp_rec;
-    }
-  }
-  return hit_anything;
+__global__ void free_world(hittable** d_list, hittable_list** d_world) {
+  delete d_list[0];
+  delete d_list[1];
+  delete d_world[0];
 }
 
-__device__ colorint ray_color(const ray &r, sphere* world) {
+__device__ colorint ray_color(const ray &r, hittable_list** world) {
   hit_record rec;
-  if (world_hit(world, 2, r, 0., infinity, rec)) {
+  if (world[0]->hit(r, 0., infinity, rec)) {
     // printf("normal: %f %f %f\n", rec.normal.x(), rec.normal.y(), rec.normal.z());
     return colorint(0.5 * (rec.normal + vec3(1., 1., 1.)));
   }
@@ -137,11 +143,7 @@ __device__ colorint ray_color(const ray &r, sphere* world) {
 }
 
 __global__ void render(colorint *pixels, vec3 pixel00_loc, point3 camera_center,
-                       vec3 dpdu, vec3 dpdv, int width, int height) {
-  extern __shared__ char shared[];
-  sphere* shared_sphere = (sphere*)shared;
-  if (threadIdx.x == 0) create_world(shared_sphere);
-  __syncthreads();
+                       vec3 dpdu, vec3 dpdv, int width, int height, hittable_list** d_world) {
   
   int x = blockIdx.x * blockDim.x + threadIdx.x;
   int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -149,6 +151,6 @@ __global__ void render(colorint *pixels, vec3 pixel00_loc, point3 camera_center,
   auto pixel_center = pixel00_loc + (x * dpdu) + (y * dpdv);
   auto ray_direction = pixel_center - camera_center;
   ray r(camera_center, ray_direction);
-  pixels[y * width + x] = ray_color(r, shared_sphere);
+  pixels[y * width + x] = ray_color(r, d_world);
 
 }
